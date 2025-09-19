@@ -5,8 +5,17 @@ from pickle import TRUE
 import subprocess
 import psycopg2
 import socket
+from time import time
 import shutil
 import os
+
+#==== Ограничение времени, которое могло пройти с момента перезапуска служб 1C ====
+LIMIT_TIME_1C_RESTART = 300
+#==== Глобальная переменная с иформацией о перезапуске служб 1C ====
+is_1c_restart = False
+#==== Путь к timestamp-файлу ====
+TIMESTAMP_PATH = "/tmp/1c_restart_time.tmp"
+#=========
 
 #======== Основные параметры ========
 zabbix_metric_1c  = "availability1c"        #Название метрики в Zabbix
@@ -219,6 +228,20 @@ def send_result_zabbix(host,key,value):
    result = cmdresult.decode()
    print (result)
 
+# Проверка начала перезапуска служб 1C
+def check_1c_services_restart():
+   global is_1c_restart
+   try:
+        with open(TIMESTAMP_PATH, 'r') as f:
+            restart_time = float(f.read())
+            current_time = time()
+            spended_time = current_time - restart_time
+            # print("Перезапуск служб 1C занял:", spended_time, "секунд")
+            # Если перезагрузка служб 1C занимает менее указанного лимита
+            if spended_time < LIMIT_TIME_1C_RESTART:
+                is_1c_restart = True
+   except FileNotFoundError:
+        pass
 
 # Проверка доступности сервера лицензирования 1С
 def check_license_service():
@@ -232,6 +255,8 @@ def check_license_service():
          if fn_host_is_active(ras_server, list_clusters[0], server["agent-host"])==True:
             result = "1"
             print('License service is active')
+   if is_1c_restart:
+      result = "1"
 
    send_result_zabbix(zabbix_host, zabbix_metric_lic, result)
 
@@ -243,6 +268,8 @@ def check_1c_base(base_name):
       result = "0"
    else:
       print('Base 1c ok!')
+      result = "1"
+   if is_1c_restart:
       result = "1"
 
    send_result_zabbix(zabbix_host, zabbix_metric_1c, result)
@@ -270,6 +297,8 @@ def remove_rac_directories():
             shutil.rmtree(dir_path)
 
 def main(args):
+   global is_1c_restart
+   
    runmode = ''.join(args.runmode).lower()
    base_name = ''.join(args.base_name)
 
@@ -293,14 +322,20 @@ def main(args):
       zabbix_host = hostname
 
    if runmode == "1c":
+      # Проверяем происходит ли перезапуск служб 1C
+      check_1c_services_restart()
       check_1c_base(base_name)
    
    elif runmode == "pg":
       check_pg_base(base_name)
    
    elif runmode == "lic":
+      # Проверяем происходит ли перезапуск служб 1C
+      check_1c_services_restart()
       check_license_service()
    elif runmode == "all":
+      # Проверяем происходит ли перезапуск служб 1C
+      check_1c_services_restart()
       check_1c_base(base_name)
       check_pg_base(base_name)
       check_license_service()

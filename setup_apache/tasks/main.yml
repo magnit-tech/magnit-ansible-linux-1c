@@ -22,10 +22,10 @@
     ansible.builtin.apt:
       name: sysstat
 
-  - name: copy file zabbix_agentd.conf
+  - name: copy file zabbix_agent2.conf
     become: true
     copy:
-      src: zabbix_agentd.conf
+      src: zabbix_agent2.conf
       dest: /etc/zabbix/
       mode: 0644
 
@@ -36,10 +36,10 @@
       dest: /etc/zabbix/scripts/
       mode: 0755
 
-  - name: Reload service zabbix-agent
+  - name: Reload service zabbix-agent2
     become: true
     ansible.builtin.systemd:
-      name: zabbix-agent.service
+      name: zabbix-agent2.service
       state: reloaded 
 
   # Создание каталога SSL

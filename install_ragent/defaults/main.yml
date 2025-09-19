@@ -1,7 +1,7 @@
----
-# defaults file for install_ragent
-temp_dir_1c: /var/1C # Директория, которая примонтирована на отдельную партицию для размещения темпа 1С. В ней будут папки серверов 1С
-SRV1CV8_DEBUG:
-SRV1CV8_PORT: 1540
-SRV1CV8_REGPORT: 1541
-SRV1CV8_RANGE: 1560:1591
+# ---
+# # defaults file for install_ragent
+# temp_dir_1c: /var/1C # Директория, которая примонтирована на отдельную партицию для размещения темпа 1С. В ней будут папки серверов 1С
+# SRV1CV8_DEBUG:
+# SRV1CV8_PORT: 1540
+# SRV1CV8_REGPORT: 1541
+# SRV1CV8_RANGE: 1560:1591

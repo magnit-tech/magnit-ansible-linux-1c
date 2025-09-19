@@ -1,0 +1,6 @@
+# defaults file for install_docker
+docker_packages:
+  - docker.io
+  - docker-compose
+
+docker_group: docker

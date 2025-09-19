@@ -1,0 +1,26 @@
+---
+# defaults file for actualize_scripts_with_pass_util
+
+  target_user: "root" # Укажите нужного пользователя (по умолчанию root)
+  user_home: "{{ ('/home/' + target_user) if target_user != 'root' else '/root' }}"
+  password_store_archive: "/ansible/distr/password-store/password-store.tar.gz" # Локальный архив хранилища
+  scripts_dest_dir: "/opt/1cv8/scripts" # Целевая папка для скриптов
+  private_key_file: "/ansible/distr/keys/private_key.asc" # Файл с закрытым ключом GPG
+  gpg_key_identity: "PRIVATE KEY CODE" #"user_au user_au@example.com" / "<КОД КЛЮЧА>" # Идентификатор ключа для проверки
+  groups_is_root: true
+    
+  ## Параметры zabbix_exporter.py ##
+  script_path: "/ansible/distr/scripts_monitoring/zabbix_exporter.py" # Путь к локальному файлу скрипта
+  runmode: "all" #"runmode" # режим работы zabbix_exporter.py
+  base_name: "base_name" # имя базы данных
+  pg_server: "pg_server" # сервер СУБД
+  pg_user: "pg_user" # пользователь базы данных
+  pg_pass: "pg_pass" # Путь к паролю пользователя в password-store
+  ras_cluster_user: "ras_cluster_user"
+  ras_cluster_pass: "ras_cluster_pass" # Путь к паролю пользователя в password-store
+
+  ## Параметры versioning_configs.py ##
+  script_path_versioning_configs: "/ansible/distr/scripts_backup/versioning_configs.py" # Путь к локальному файлу скрипта
+  host_url: "some_host_url" # По умолчанию some_host_url
+  private_token: "password_path" # Путь к приватному токену в password-store, например, folder/password_file
+

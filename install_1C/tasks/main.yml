@@ -1,43 +1,92 @@
 ---
 # tasks file for install_1C
 
-  # Остановка и завершение старых служб 1С
-  - name: Remove old 1C services
-    become: true
-    ignore_errors: yes
-    shell: "{{ item }}"
-    with_items:
-    - systemctl stop $(systemctl list-unit-files --no-legend srv1cv8-* | awk '{print $1}')
-    - systemctl stop $(systemctl list-unit-files --no-legend ras-* | awk '{print $1}')
-    - systemctl disable $(systemctl list-unit-files --no-legend srv1cv8-* | awk '{print $1}')
-    - systemctl disable $(systemctl list-unit-files --no-legend ras-* | awk '{print $1}')
-    when: flag_Remove_old_1C_service == true    
+# Поиск старых служб 1С
+- name: Find old 1C services
+  become: true
+  shell: systemctl list-unit-files --no-legend srv1cv8-* | awk '{print $1}'
+  register: command_result
 
-  - set_fact:
-      inst_file_name: "setup-full-{{ onec_version_name }}-x86_64.run" 
+# Установка переменной, что старые службы 1С найдены
+- name: Set var find_old_1C_services
+  set_fact:
+    find_old_1C_services: "{{ command_result.stdout != '' }}"
 
-  # Создание директории, куда будут скопированы файлы для установки 1С 
-  - name: Create directory for package platform 1C
-    ansible.builtin.file:
-      path: "{{ ins_dir_dest }}"
-      state: directory
-      mode: '0755'
+# Остановка и отключение старых служб 1С
+- name: Stop and disable old 1C services
+  become: true
+  systemd:
+    name: "{{ item }}"
+    state: stopped
+    enabled: no
+  loop: "{{ old_services }}"
+  when: flag_Remove_old_1C_service and find_old_1C_services
+  ignore_errors: yes
+  tags: stop_services
 
-  # Копирование файла установки 1С
-  - name: copy file of install platform 1C
-    copy:
-      src: "{{ ins_dir_src }}/{{ inst_file_name }}"
-      dest: "{{ ins_dir_dest }}"
-      mode: 0777
-    when: flag_copy_inst == true 
+# Установка имени файла установки
+- name: Set installer file name
+  set_fact:
+    inst_file_name: "setup-full-{{ onec_version_name }}-x86_64.run"
 
-  # Установка платформы
-  - name: Run 1C install script
-    become: true
-    command: "sudo {{ ins_dir_dest }}/{{ inst_file_name }} --mode unattended --disable-components client_full --enable-components {{enable_components}}"
+# Установка платформы 1С
+- name: Install 1C platform
+  block:
+    # Создание директории для файла установки
+    - name: Create directory for package platform 1C
+      ansible.builtin.file:
+        path: "{{ ins_dir_dest }}"
+        state: directory
+        mode: "0755"
+      tags: create_dir
 
-    # Удаление инсталяционных файлов установленных пакетов
-  - name: Delete directory for package platform 1C
-    file:
-      path: "{{ ins_dir_dest }}"
-      state: absent
+    # Загрузка файла установки
+    - name: Download 1C platform installer
+      become: true
+      get_url:
+        url: "{{ platform_installer_url }}"
+        dest: "{{ ins_dir_dest }}/{{ inst_file_name }}"
+        mode: "0777"
+        validate_certs: no # Отключаем проверку SSL-сертификата
+      tags: download
+
+    # Проверка, что файл успешно загружен
+    - name: Check if installer is downloaded
+      stat:
+        path: "{{ ins_dir_dest }}/{{ inst_file_name }}"
+      register: installer_file
+      tags: check_file
+
+    - name: Fail if installer is not downloaded
+      fail:
+        msg: "Installer file not found or is not executable!"
+      when: >
+        not installer_file.stat.exists
+      tags: check_file
+
+    # Запуск установки платформы
+    - name: Run 1C install script
+      become: true
+      command: "{{ ins_dir_dest }}/{{ inst_file_name }} --mode unattended --disable-components client_full --enable-components {{ enable_components }}"
+      tags: install
+
+  rescue:
+    - fail:
+        msg: "Failed to install 1C platform"
+
+# Удаление инсталляционных файлов
+- name: Delete directory for package platform 1C
+  file:
+    path: "{{ ins_dir_dest }}"
+    state: absent
+  tags: cleanup
+
+# Установка символической ссылки на папку 1С ПРЕДПРИЯТИЯ
+- name: Create symlink to folder
+  file:
+    src: "/opt/1cv8/x86_64/{{ onec_version_name }}"
+    dest: "/opt/1cv8/x86_64/current"
+    state: link
+  become: yes
+  when: default_version_name == onec_version_name
+  tags: symlink

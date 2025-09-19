@@ -1,0 +1,83 @@
+# tasks file for install_docker
+
+- name: Remove old Docker packages
+  become: true
+  apt:
+    name: "{{ item }}"
+    state: absent
+    purge: yes
+  loop:
+    - docker.io
+    - docker-doc
+    - docker-compose
+    - podman-docker
+    - containerd
+    - runc
+
+- name: Purge Docker CE and related packages
+  become: true
+  apt:
+    name: "{{ item }}"
+    state: absent
+    purge: yes
+  loop:
+    - docker-ce
+    - docker-ce-cli
+    - containerd.io
+    - docker-buildx-plugin
+    - docker-compose-plugin
+    - docker-ce-rootless-extras
+
+- name: Ensure Docker is removed
+  command: docker --version
+  register: docker_version
+  ignore_errors: yes
+  changed_when: false
+
+- name: Fail if Docker is still installed
+  fail:
+    msg: "Docker is still installed!"
+  when: docker_version.rc == 0
+
+- name: Update apt cache
+  become: true
+  apt:
+    update_cache: yes
+
+- name: Install Docker and Docker Compose
+  become: true
+  apt:
+    name: "{{ docker_packages }}"
+    state: present
+
+- name: Reload systemd daemon
+  become: true
+  systemd:
+    daemon_reload: yes
+
+- name: Ensure Docker is installed
+  command: docker --version
+  register: docker_installed_version
+  changed_when: false
+
+- name: Ensure Docker Compose is installed
+  command: docker-compose --version
+  register: docker_compose_installed_version
+  changed_when: false
+
+- name: Create Docker group
+  become: true
+  group:
+    name: "{{ docker_group }}"
+    state: present
+
+- name: Add current user to Docker group
+  become: true
+  user:
+    name: "{{ ansible_user }}"
+    groups: "{{ docker_group }}"
+    append: yes
+
+- name: Notify user to log out and log back in
+  debug:
+    msg: "User {{ ansible_user }} has been added to the Docker group. Please log out and log back in for the changes to take effect."

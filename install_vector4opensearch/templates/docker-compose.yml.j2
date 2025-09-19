@@ -1,0 +1,15 @@
+version: "3"
+services:
+  vector:
+    image: timberio/vector:0.42.0-debian
+    container_name: vector
+    hostname: "{{ ansible_hostname }}"
+    restart: always
+    logging:
+      driver: "none"
+    user: root
+    volumes:
+      - /etc/vector/config:/etc/vector/config
+      - /etc/vector/vector.yaml:/etc/vector/vector.yaml
+      - /var/vector/data:/var/vector/data
+      - /var/1C/1540/log:/var/vector/1540/techlog

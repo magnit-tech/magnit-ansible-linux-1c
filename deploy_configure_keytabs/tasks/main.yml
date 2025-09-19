@@ -1,0 +1,54 @@
+---
+# tasks file for deploy and install keytabs for 1C servers
+
+  # Проверка на существование директории /opt/1cv8/conf (создание, если нет)
+  - name: Ensure /opt/1cv8/conf directory exists
+    file:
+      path: /opt/1cv8/conf
+      state: directory
+      owner: usr1cv8
+      group: grp1cv8
+      mode: '0755'
+    tags: setup
+
+  # Копирование keytab файла на удаленный сервер с правами
+  - name: Copy keytab file to remote servers
+    copy:
+      src: "/ansible/distr/keytabs/{{ keytabs | selectattr('host', 'equalto', inventory_hostname) | map(attribute='keytab') | first }}"
+      dest: "/opt/1cv8/conf/usr1cv8.keytab"
+      owner: usr1cv8
+      group: grp1cv8
+      mode: '0644'
+      force: yes
+      tags: copy
+    when: inventory_hostname in keytabs | map(attribute='host') | list
+
+  # Проверка наличия условий в keytab файле
+  - name: Check if principal exists in keytab
+    command: klist -k -t /opt/1cv8/conf/usr1cv8.keytab
+    register: keytab_principals
+    changed_when: false
+    tags: kerberos
+    when: inventory_hostname in keytabs | map(attribute='host') | list
+  
+  # Инициализация тикета Kerberos, используя keytab файл
+  - name: Initialize Kerberos ticket using keytab
+    command: kinit -k -t /opt/1cv8/conf/usr1cv8.keytab usr1cv8/{{ inventory_hostname }}.domen.ru
+    tags: kerberos
+    when:
+      - inventory_hostname in keytabs | map(attribute='host') | list
+      - keytab_principals is defined
+      - "'usr1cv8/' + inventory_hostname + '.domen.ru' in keytab_principals.stdout"
+    ignore_errors: yes  # Продолжать выполнение, даже если kinit завершился с ошибкой
+
+  # Собираем логи результата kinit
+  - name: Log kinit result
+    debug:
+      msg: |
+        {% if keytab_principals is defined and 'usr1cv8/' + inventory_hostname + '.domen.ru' in keytab_principals.stdout %}
+          Kerberos ticket initialized for {{ inventory_hostname }}
+        {% else %}
+          Principal 'usr1cv8/{{ inventory_hostname }}.domen.ru' not found in keytab
+        {% endif %}
+    tags: kerberos
+    when: inventory_hostname in keytabs | map(attribute='host') | list

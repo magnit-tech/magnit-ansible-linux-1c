@@ -1,0 +1,19 @@
+---
+- name: Установка и настройка Vector для отправки логов в OpenSearch
+  hosts: all  # Указываем, что плейбук будет выполняться на всех хостах из инвентаря
+  become: true  # Выполнять задачи с повышенными привилегиями (sudo)
+  vars_prompt:
+    - name: ansible_password
+      prompt: "Введите пароль для подключения к хостам"
+      private: yes
+
+  vars:
+    opensearch_user: "ЗАМЕНИТЕ"  # Пользователь OpenSearch
+    opensearch_password: "ЗАМЕНИТЕ"  # Пароль OpenSearch
+
+  tasks:
+    - name: Проверка подключения к хостам
+      ping:
+
+  roles:
+    - role: install_vector4opensearch  # Указываем роль, которая будет использоваться для установки Vector

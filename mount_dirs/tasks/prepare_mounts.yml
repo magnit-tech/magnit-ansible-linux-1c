@@ -1,0 +1,22 @@
+---
+- name: Create filesystems
+  ansible.builtin.filesystem:
+    fstype: "{{ fs_type }}"
+    dev: "/dev/mapper/{{ vg_name }}-{{ item.name }}"
+  loop: "{{ lvm_structure }}"
+
+- name: Create mount points
+  ansible.builtin.file:
+    path: "{{ item.mount }}"
+    state: directory
+    mode: '0755'
+  loop: "{{ lvm_structure }}"
+  when: item.create_dir | default(false) 
+
+- name: Create temporary mount points for migration
+  ansible.builtin.file:
+    path: "/mnt/new_{{ item.name }}"
+    state: directory
+    mode: '0755'
+  loop: "{{ lvm_structure }}"
+  when: item.migrate | default(false)  

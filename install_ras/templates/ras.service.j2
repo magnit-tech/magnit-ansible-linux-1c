@@ -15,7 +15,7 @@ Environment=RAS_PORT={{ RAS_PORT }}
 #   host[:port]
 Environment=RAS_CLUSTER_ADDRESS=127.0.0.1:{{ SRV1CV8_PORT }}
 
-ExecStart=/opt/1cv8/x86_64/{{ onec_version_name }}/ras cluster --port=${RAS_PORT} $RAS_CLUSTER_ADDRESS
+ExecStart=/opt/1cv8/x86_64/{{ current_catalog_onec }}/ras cluster --port=${RAS_PORT} $RAS_CLUSTER_ADDRESS
 Restart=always
 RestartSec=1
 

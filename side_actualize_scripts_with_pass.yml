@@ -1,0 +1,41 @@
+---
+- name: Updates scripts based on the PASS utility for 1C servers
+  hosts: all  # Указываем, что плейбук будет выполняться на всех хостах из инвентаря
+  become: true  # Выполнять задачи с повышенными привилегиями (sudo)
+  vars_prompt:
+    - name: ansible_password
+      prompt: "Введите пароль для подключения к хостам"
+      private: yes
+
+  ## Актуализирует скрипты, учитывая утилиту PASS под конкретного пользователя
+
+  ## Например, usr1cv8 будет иметь свой crontab и свой .password-store
+  ## свой gpg - открытый и закрытый ключ
+  ## Для установки скриптов использует уже имеющиеся роли
+
+  vars:
+    target_user: "root" #"user" # Укажите нужного пользователя
+    user_home: "{{ ('/home/' + target_user) if target_user != 'root' else '/root' }}"
+    password_store_archive: "/ansible/distr/password-store/password-store.tar.gz" #"./password-store.tar.gz"  # Локальный архив хранилища
+    scripts_dest_dir: "/opt/1cv8/scripts"   # Целевая папка для скриптов
+    private_key_file: "/ansible/distr/keys/private_key.asc"   # Файл с закрытым ключом GPG
+    gpg_key_identity: "PRIVATE KEY CODE" #"user_au user_au@example.com" или "<КОД КЛЮЧА>"  # Идентификатор ключа для проверки
+    # groups_is_root: true
+    
+    ## Параметры zabbix_exporter.py ##
+    script_path: "/ansible/distr/scripts_monitoring/zabbix_exporter.py" # Путь к локальному файлу скрипта
+    runmode: "all" #"runmode" # режим работы zabbix_exporter.py
+    base_name: "base_name" # Имя базы данных
+    pg_server: "pg_server" # Сервер с СУБД
+    pg_user: "pg_user" # Пользователь базы данных
+    pg_pass: "password_path" #"pg_pass" # Путь к паролю пользователя в password-store
+    ras_cluster_user: "ras_cluster_user" # Пользователь кластера 1C
+    ras_cluster_pass: "password_path" #"ras_cluster_pass" # Путь к паролю пользователя в password-store
+
+    ## Параметры versioning_configs.py ##
+    script_path_versioning_configs: "/ansible/distr/scripts_backup/versioning_configs.py" # Путь к локальному файлу скрипта
+    host_url: "some_host_url" # URL хоста GitLab 
+    private_token: "password_path" # Путь к приватному токену в password-store (Токен доступа к подгруппе tst или prod)
+
+  roles:
+    - role: actualize_scripts_with_pass_util # Актуализирует скрипты на сервере с учетом PASS

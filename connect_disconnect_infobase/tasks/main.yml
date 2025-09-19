@@ -1,0 +1,75 @@
+---
+# tasks file for connect/disconnect infobase for 1C servers
+
+  # Получаем UUID кластера серверов
+  - block:
+      - name: Get cluster information
+        command: "{{ rac }} {{ ras_server }} cluster list"
+        register: cluster_info
+        changed_when: false # Не меняет состояния (Не пропускает)
+        tags: cluster_uuid, infobase_connect, infobase_disconnect
+
+      - name: Extract cluster UUID
+        set_fact:
+          cluster_uuid: "{{ cluster_info.stdout | regex_search('cluster\\s*:\\s*(\\S+)', '\\1') | first }}"
+        when: "'cluster  ' in cluster_info.stdout"
+        tags: cluster_uuid, infobase_connect, infobase_disconnect
+
+      - name: Warn if cluster UUID not found
+        debug:
+          msg: "Не удалось получить UUID кластера"
+        when: cluster_uuid is not defined or cluster_uuid == None
+        tags: cluster_uuid, infobase_connect, infobase_disconnect
+
+  # (Отключение) Получем UUID информационной базы кластера серверов
+  - block:
+      - name: Get cluster infobases`s list
+        command: "{{ rac }} {{ ras_server }} infobase --cluster={{ cluster_uuid }} 
+                                               --cluster-user={{ cluster_user }} 
+                                               --cluster-pwd={{ cluster_pass }} summary list"
+        register: infobases_list
+        changed_when: false
+        tags: infobases_list, infobase_disconnect
+
+      # Извлекаем UUID базы из выражения вида "infobase : <UUID>\nname   : <NAME>"
+      - name: Extract infobase UUID
+        set_fact:
+          infobase_uuid: "{{ infobases_list.stdout | regex_findall('infobase\\s*:\\s*(\\S+)\\s*\\nname\\s*:\\s*' ~ infobase_name, '\\1') | first | default('') }}"
+        when: 
+          - infobases_list.stdout is defined
+          - "'infobase :' in infobases_list.stdout"
+        tags: infobase_uuid, infobase_disconnect
+
+      - name: Warn if infobase UUID not found
+        debug:
+          msg: "Не удалось получить UUID информационной базы кластера по имени: {{ infobase_name }}"
+        when: infobase_uuid is not defined or infobase_uuid == None or infobase_uuid == ''
+        tags: infobase_uuid, infobase_disconnect
+    when: (action_with_infobase == "disconnect" and cluster_uuid is defined and cluster_uuid != None)
+
+  # Подключаем/отключаем базу
+  - block:
+      # Подключаем базу данных к кластеру серверов
+      - name: Connect infobase to cluster
+        command: "{{ rac }} {{ ras_server }} infobase create --cluster={{ cluster_uuid }} 
+                                      --cluster-user={{ cluster_user }} 
+                                      --cluster-pwd={{ cluster_pass }} 
+                                      --locale={{ locale }} 
+                                      --name={{ infobase_name }} 
+                                      --db-server={{ db_server }} --dbms={{ dbms }} 
+                                      --db-name={{ db_name }} --db-user={{ db_user }} 
+                                      --db-pwd={{ db_pass }}"
+        when: action_with_infobase == "connect"
+        tags: infobase_connect
+
+      # Отключаем базу данных от кластера серверов
+      - name: disconnect infobase from cluster
+        command: "{{ rac }} {{ ras_server }} infobase drop --cluster={{ cluster_uuid }} 
+                                      --cluster-user={{ cluster_user }} 
+                                      --cluster-pwd={{ cluster_pass }}
+                                      --infobase={{ infobase_uuid }} 
+                                      --infobase-user={{ infobase_user }} 
+                                      --infobase-pwd={{ infobase_pass }}"
+        when: (action_with_infobase == "disconnect" and infobase_uuid is defined and infobase_uuid != None and infobase_uuid != '')
+        tags: infobase_disconnect
+    when: (cluster_uuid is defined and cluster_uuid != None)

@@ -5,7 +5,7 @@
   - name: Copy script of sychronization configs files with GitLab
     become: true
     ansible.builtin.copy:
-      src: "{{ script_path }}"
+      src: "{{ script_path_versioning_configs }}"
       dest: /opt/1cv8/scripts/
       mode: '0755'
 
@@ -17,7 +17,7 @@
       user: root
       minute: "0"
       hour: "*"
-      job: "python3 -W ignore {{ script_dir_dist }} -hurl {{ host_url }} -pt {{ private_token }} --upload"
+      job: "python3 -W ignore /opt/1cv8/scripts/versioning_configs.py -hurl {{ host_url }} -pt {{ private_token }} --upload"
 
   # Обновить список доступных пакетов из репозиториев
   - name: Run the equivalent of apt update
@@ -46,4 +46,4 @@
     become: true
     ansible.builtin.pip:
       name: python-gitlab
-      extra_args: "--upgrade"
+      extra_args: "--upgrade --index-url some_host_url --trusted-host=some_host_url"

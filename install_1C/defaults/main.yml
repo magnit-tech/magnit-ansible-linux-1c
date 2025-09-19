@@ -1,9 +1,21 @@
----
 # defaults file for install_1C
 
-ins_dir_dest: /home/ivanov_ii/distr/platform # директория куда нужно копировать файл установки платформы
-ins_dir_src: /ansible/distr/platform # директория откуда нужно копировать файл установки платформы
+# Директория, куда будет загружен файл установки
+ins_dir_dest: /home/ivanov_ii/distr/platform
 
-flag_copy_inst: true # Флаг нужно или нет копировать файл установки платформы
-enable_components: server,server_admin,additional_admin_functions # Устанавливемые компоненты платформы
-flag_Remove_old_1C_service: true # флаг, что нужно удалять старые службы 1С
+# URL файла установки 1С 22 платформа
+platform_installer_url: some_host_url
+
+# Имя файла установки (генерируется динамически)
+inst_file_name: "setup-full-{{ onec_version_name }}-x86_64.run"
+
+# Устанавливаемые компоненты платформы
+enable_components: server,server_admin,additional_admin_functions
+
+# Флаг, указывающий, нужно ли удалять старые службы 1С
+flag_Remove_old_1C_service: true
+
+# Список старых служб 1С для остановки и удаления
+old_services:
+  - "srv1cv8-{{ SRV1CV8_PORT }}"
+  - "ras-{{ RAS_PORT }}"

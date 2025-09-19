@@ -1,4 +1,4 @@
----
-# defaults file for install_ras
-RAS_PORT: 1545 # Порт сервера администрирования, если не задан, то ставиться не будет
-SRV1CV8_PORT: 1540 # Порт запуска ragent
+# ---
+# # defaults file for install_ras
+# RAS_PORT: 1545 # Порт сервера администрирования, если не задан, то ставиться не будет
+# SRV1CV8_PORT: 1540 # Порт запуска ragent

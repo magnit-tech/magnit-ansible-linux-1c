@@ -1,0 +1,10 @@
+---
+# Имя хоста для контейнера Vector
+ansible_hostname: "{{ inventory_hostname }}"
+
+# Пользователь и пароль OpenSearch
+opensearch_user: "ЗАМЕНИТЕ"
+opensearch_password: "ЗАМЕНИТЕ"
+
+# Переменная host для использования в шаблонах
+host: "{{ ansible_hostname }}"

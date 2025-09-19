@@ -1,0 +1,13 @@
+---
+disk_device: "/dev/sdb"
+vg_name: "data_vg"
+
+# Структура томов и точек монтирования
+lvm_structure:
+  - { name: "home_lv", size: "100G", mount: "/home", migrate: true, create_dir: false}
+  - { name: "tmp_lv", size: "10G", mount: "/tmp", migrate: true, create_dir: false }
+  - { name: "log_lv", size: "20G", mount: "/var/log", migrate: true, create_dir: false }
+  - { name: "mnt_data_lv", size: "200G", mount: "/mnt/data", migrate: false, create_dir: true }
+  - { name: "data_lv", size: "100%FREE", mount: "/var/1C", migrate: true, create_dir: true }
+
+fs_type: "ext4"

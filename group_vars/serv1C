@@ -1,10 +1,11 @@
 ansible_user: ivanov_ii 
-# ansible_password: 
-# Переопределение запуска службы сервера, если не нужно, то закоменить, значения по умолчанию заданы в defaults file for install_1C
+#Флаг для переключения на другие порты
+use_custom_ports: true
+#Переменные по умолчанию
+SRV1CV8_PORT: "{{ '1540' if not use_custom_ports else '2540' }}"
+SRV1CV8_REGPORT: "{{ '1541' if not use_custom_ports else '2541' }}"
+SRV1CV8_RANGE: "{{ '1560:1591' if not use_custom_ports else '2560:2591' }}"
+RAS_PORT: "{{ '1539' if not use_custom_ports else '2539' }}"
+#Опции отладки сервера
 #SRV1CV8_DEBUG: '"-debug -http /debugServerPort 1638 /debugServerPwd 1111"' # признак необходимости запуска сервера отладки под http
 #SRV1CV8_DEBUG: -debug # признак необходимости запуска сервера отладки под tcp
-#SRV1CV8_PORT: 1540
-#SRV1CV8_REGPORT: 1541
-#SRV1CV8_RANGE: 1560:1591 
-#RAS_PORT: 1539 # Порт сервера администрирования, если не задан, то ставиться не будет
-#RAS_PORT:  # Если не нужно ставить сервер администирования, то нужно раскоменить эту строчку

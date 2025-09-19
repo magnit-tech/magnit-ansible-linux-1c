@@ -1,0 +1,48 @@
+---
+- name: Connect/disconnect infobase and configure domain authorization for 1C servers
+  hosts: all  # Указываем, что плейбук будет выполняться на всех хостах из инвентаря
+  become: true  # Выполнять задачи с повышенными привилегиями (sudo)
+  vars_prompt:
+    - name: ansible_password
+      prompt: "Введите пароль для подключения к хостам"
+      private: yes
+
+
+## Подключает/отключает информационную базу и настраивает доменную авторизацию
+
+  vars:
+    # Параметры
+    # Режим действия с информационной базой
+    action_with_infobase: "connect" # возможные значения: "connect" / "disconnect"
+    ### Пароли и логины для баз ###
+    cluster_user: "cluster_user" # Пользователь кластера серверов
+    cluster_pass: "cluster_pass" # Пароль пользователя кластера
+    infobase_name: "infobase_name" # Имя информационной базы
+    infobase_user: "infobase_user" # (Отключение) Имя пользователя информационной базы
+    infobase_pass: "infobase_pass" # (Отключение) Пароль пользователя информационной базы, знаки процента (%) нужно экранировать обратной косой чертой т.е. "my%pas%s" будет "my\%pas\%s"
+    dbms: "PostgreSQL" # (Подключение) Тип СУБД
+    db_name: "db_name" # (Подключение) Имя базы в СУБД
+    db_server: "db_server" # (Подключение) Имя сервера PostgreSQL
+    db_user: "db_user" # (Подключение) Имя пользователя PostgreSQL
+    db_pass: "db_pass" # (Подключение) Пароль пользователя PostgreSQL, знаки процента (%) нужно экранировать обратной косой чертой т.е. "my%pas%s" будет "my\%pas\%s"
+    
+    ### ras и rac настрока ###
+    ras_port: 1545 # Порт сервера администрирования, Значение по умолчанию 1545
+    ras_server: localhost:{{ ras_port }} # IP и порт серврера Remote Andministrative Server (по-умолчанию localhost:1545)
+    ras_cluster_user: "ras_cluster_user" # Имя администратора кластера 1С
+    ras_cluster_pass: "ras_cluster_pass" # Пароль администратора кластера 1С
+    locale: "RU" # (обязательный) идентификатор национальных настроек информационной базы
+    
+    ### 1С Платформа ###
+    onec_version_name: "8.3.22.1851"
+    default_version_name: 8.3.22.1851 # версия платформы 1С на порту 1540
+    current_catalog_onec: "{{ 'current' if onec_version_name == default_version_name else onec_version_name }}"
+    rac: /opt/1cv8/x86_64/{{ onec_version_name }}/rac
+    keytabs:
+    # пример хостов и имен кейтабов
+      # - { host: "some_host_ip", keytab: "svc_1c.keytab" }
+
+
+  roles:
+    - role: connect_disconnect_infobase # подключение/отключение информационной базы
+    - role: deploy_configure_keytabs # разворачивает и настраивает кейтабы

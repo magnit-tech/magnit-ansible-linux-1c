@@ -6,76 +6,164 @@ import sys
 import os
 import shutil
 import glob
+import pwd
+from time import sleep, time
+from sys import stdout
 
-def del_file (folder):
+
+JUMP_LEFT_SEQ = '\u001b[100D'
+DELAY = 0.8
+
+TIMESTAMP_PATH = '/tmp/1c_restart_time.tmp'
+
+# Создать timestamp-файл с текущим временем создания
+def make_timestamp():
+    with open(TIMESTAMP_PATH, 'w') as f:
+        f.write(str(time()))
+
+# Удалить timestamp-файл
+def delete_timestamp():
+    try:
+        if os.path.isfile(TIMESTAMP_PATH):
+            os.unlink(TIMESTAMP_PATH)
+    except Exception as e:
+        print(e)
+        pass
+
+def fn_finish_1C_processes(ports):
+    ports_pattern="|".join(ports)
+    cmd=f"ps auxf | grep -v 'grep' | grep ragent | grep -E 'port [{ports_pattern}]'"+" | awk {'print $2'}"
+    pids = subprocess.check_output(cmd, shell=True)
+    d_pids = pids.decode()
+    l_pids = d_pids.split()
+    cmd=f"echo -n $(ps auxf | grep -v 'grep' | grep -E 'rphost|ragent|rmngr' | grep -E '[{ports_pattern}]')"
+    info_about_processes = subprocess.check_output(cmd, shell=True).decode()
+    for pid in l_pids:
+      cmd=f"kill -9 {pid}"
+      subprocess.run(cmd, shell=True)
+    if info_about_processes == "":
+        print("ragent, rphost, rmngr остановлены")
+    else:
+        print("ragent, phost, rmngr продолжают работать")
+
+
+# Получить активные сервисы 1C в виде строки
+def get_active_1C_services(services):
+    name_stat_cmd = "echo -n $(systemctl list-units "+services+" | grep srv1cv8 | "
+    name_stat_cmd += "awk {'print $1\" \"$3'} | grep -E ' active')"
+    name_stat = subprocess.check_output(name_stat_cmd, shell=True)
+    names = name_stat.decode().replace(" active", "").replace(" ", "\n")
+    return names
+
+# Отображение оставшегося времени до завершения процесса
+def loading(services):
+    timeout = 180
+    printed_last_time = False
+    for i in range(0, timeout):
+        sleep(DELAY)
+        if (servs_names:=get_active_1C_services(services)) == "":
+            if printed_last_time:
+                print()
+            return
+        print(JUMP_LEFT_SEQ, end='')
+        print(f'Осталось времени до истечения таймаута: {(timeout - i)//60:0>2}m{(timeout - i)%60:0>2}s..', end='')
+        stdout.flush()
+        printed_last_time = True
+    print("\nСервисы 1C, которые не остановились в течение таймаута:")
+    print(servs_names)
+
+def del_file(folder):
     for filename in os.listdir(folder):
-      file_path = os.path.join(folder, filename)
-      try:
-         if os.path.isfile(file_path) or os.path.islink(file_path):
-            os.unlink(file_path)
-         elif os.path.isdir(file_path):
-            print('Удаляется файл %s' % (file_path))
-            shutil.rmtree(file_path)
-      except Exception as e:
-         print('Failed to delete %s. Reason: %s' % (file_path, e))
+        file_path = os.path.join(folder, filename)
+        try:
+            if os.path.isfile(file_path) or os.path.islink(file_path):
+                os.unlink(file_path)
+            elif os.path.isdir(file_path):
+                print('Удаляется файл %s' % (file_path))
+                shutil.rmtree(file_path)
+        except Exception as e:
+            print('Failed to delete %s. Reason: %s' % (file_path, e))
 
 def fn_stop(donecname, rg_service):
+    services = ""
+    cmd = "systemctl stop "
     for srv in rg_service:
-      service = donecname+"-"+srv+".service"
-      cmd = "systemctl stop "+service 
-      subprocess.run(cmd, shell=True)
+        service = donecname+"-"+srv+".service"
+        services += f"{service} "
+    cmd += services
+    # Процесс запускается параллельно
+    subprocess.Popen(cmd, shell=True)
+    loading(services)
+    fn_finish_1C_processes(rg_service)
 
 def fn_start(donecname, rg_service):
+    services = ""
     for srv in rg_service:
-      service = donecname+"-"+srv+".service"
-      cmd = "systemctl start "+service
-      subprocess.run(cmd, shell=True)
+        service = donecname+"-"+srv+".service"
+        services += f"{service} "
+        cmd = "systemctl start "+service
+        subprocess.run(cmd, shell=True)
+    cmd = "systemctl status "+services+" --no-pager"
+    service_status_bin = subprocess.run(cmd, shell=True, capture_output=True).stdout
+    service_status = service_status_bin.decode()
+    print("\nServices status:", end="\n\n")
+    print(service_status)
 
 def fn_clear(rg_service, clear_temp):
     if clear_temp == "no":
-      exit()
+        exit()
     elif clear_temp == "yes":
-      for srv in rg_service: 
-        try:
-           folder = "/var/1C/"+srv+"/tmp"
-           del_file(folder)
-        except FileNotFoundError:
-           print("Каталог TMP не сконфигурирован для "+srv)
-           pass
-        try:
-           folder = glob.glob(r'/var/1C/'+srv+'/reg_*/snccntx*')
-           for fold in folder:   
-              del_file (fold)
-              os.rmdir(fold)
-        except FileNotFoundError:
-           print("Каталог REG не сконфигурирован для "+srv)
-           pass
-        try:
-           folder = "/var/1C/"+srv+"/log"
-           del_file(folder)
-        except FileNotFoundError:
-           print("Каталог LOG не сконфигурирован для "+srv+", удаляю по пути /var/1C/log")
-           folder = "/var/1C/log"
-           del_file(folder)
-           pass
+        for srv in rg_service:
+            try:
+                folder = "/var/1C/"+srv+"/tmp"
+                del_file(folder)
+            except FileNotFoundError:
+                print("Каталог TMP не сконфигурирован для "+srv)
+                pass
+            try:
+                folder = glob.glob(r'/var/1C/'+srv+'/reg_*/snccntx*')
+                for fold in folder:
+                    del_file(fold)
+                    os.rmdir(fold)
+            except FileNotFoundError:
+                print("Каталог REG не сконфигурирован для "+srv)
+                pass
+            try:
+                folder = "/var/1C/"+srv+"/log"
+                del_file(folder)
+            except FileNotFoundError:
+                print("Каталог LOG не сконфигурирован для "+srv+", удаляю по пути /var/1C/log")
+                folder = "/var/1C/log"
+                del_file(folder)
+                pass
     else:
-      print("Не верный режим удаления, допустимые значения yes/no, операция пропущена")  
-
+        print("Не верный режим удаления, допустимые значения yes/no, операция пропущена")
 
 def fn_services_check(lsvrname, rg_service):
     list_nosrv = []
     for srv in rg_service:
-      flag = 1
-      for srvall in lsvrname:
-        tempsrv = srv
-        if srvall == srv:
-          flag = 0
-          break
-      if flag == 1:
-        list_nosrv.append(tempsrv)
+        flag = 1
+        for srvall in lsvrname:
+            tempsrv = srv
+            if srvall == srv:
+                flag = 0
+                break
+        if flag == 1:
+            list_nosrv.append(tempsrv)
     return list_nosrv
-	
-		
+
+def restore_permissions(folder, owner):
+    try:
+        uid = pwd.getpwnam(owner).pw_uid
+        os.chown(folder, uid, -1)
+        for root, dirs, files in os.walk(folder):
+            for dir in dirs:
+                os.chown(os.path.join(root, dir), uid, -1)
+            for file in files:
+                os.chown(os.path.join(root, file), uid, -1)
+    except Exception as e:
+        print(f"Failed to restore permissions on {folder}. Reason: {e}")
+
 def main(args):
     global runmode
     global rg_service
@@ -86,9 +174,9 @@ def main(args):
     dsvrname = svrname.decode()
     lsvrname = dsvrname.split()
     if args.rg_service == "all":
-       rg_service = lsvrname
+        rg_service = lsvrname
     else:
-       rg_service = [x.lower() for x in args.rg_service]
+        rg_service = [x.lower() for x in args.rg_service]
     clear_temp = args.clear_temp.lower()
     namecmd="systemctl --all list-units srv1cv8* | grep srv1cv8 | awk {'print $1'} | awk -F '-' {'print $1'} | uniq"
     onecname = subprocess.check_output(namecmd, shell=True)
@@ -97,34 +185,40 @@ def main(args):
     donecname = donecname.replace(" ", "")
     list_nosrv = fn_services_check(lsvrname, rg_service)
     if len(list_nosrv) != 0:
-       print ("Не распознана служба:", list_nosrv)
-       print ("Список доступных служб:", lsvrname)
-       sys.exit()
+        print ("Не распознана служба:", list_nosrv)
+        print ("Список доступных служб:", lsvrname)
+        sys.exit()
     if runmode == 'stop':
-       fn_stop(donecname, rg_service)
-       fn_clear(rg_service, clear_temp)
-       print("stop complete")
+        fn_stop(donecname, rg_service)
+        fn_clear(rg_service, clear_temp)
+        print("stop complete")
     elif runmode == 'start':
-       fn_clear(rg_service, clear_temp)
-       fn_start(donecname, rg_service)
-       print("start complete")
+        fn_clear(rg_service, clear_temp)
+        fn_start(donecname, rg_service)
+        print("start complete")
     elif runmode == 'restart':
-       fn_stop(donecname, rg_service)
-       fn_clear(rg_service, clear_temp)
-       fn_start(donecname, rg_service)
-       print("restart complete")
+        make_timestamp()
+        fn_stop(donecname, rg_service)
+        fn_clear(rg_service, clear_temp)
+        fn_start(donecname, rg_service)
+        print("restart complete")
+        delete_timestamp()
     elif runmode == "list":
-       print(svrname.decode())
-       print("list complete")
+        print(svrname.decode())
+        print("list complete")
     else:
-       print ("Не задан режим работы, допустимые значения: stop, start, restart, list")
-  
+        print ("Не задан режим работы, допустимые значения: stop, start, restart, list")
+
+    # Restore permissions
+    for srv in rg_service:
+        log_folder = f"/var/1C/{srv}/log"
+        restore_permissions(log_folder, "usr1cv8")
+
 if __name__ == '__main__':
     # create the top-level parser
     parser = argparse.ArgumentParser()
-    parser.add_argument('-rm', '--runmode', required=False, default="restart", help="Необохимые действия: start, stop, restart, list. По умолчанию restart")
+    parser.add_argument('-rm', '--runmode', required=False, default="restart", help="Необходимые действия: start, stop, restart, list. По умолчанию restart")
     parser.add_argument('-rs', '--rg_service', required=False, nargs='+', default="all", help="Имена служб для остановки, По умолчанию все службы на сервере")
-    parser.add_argument('-ct', '--clear_temp', required=False, default="yes", help="Отчистка временных файлов, По умолчанию yes")
+    parser.add_argument('-ct', '--clear_temp', required=False, default="yes", help="Очистка временных файлов, По умолчанию yes")
     args = parser.parse_args()
     main(args)
-

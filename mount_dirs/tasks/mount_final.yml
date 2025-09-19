@@ -1,0 +1,30 @@
+---
+- name: Backup current fstab
+  ansible.builtin.copy:
+    src: /etc/fstab
+    dest: /etc/fstab.backup-{{ ansible_date_time.iso8601 }}
+    remote_src: yes
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Add LVM entries to fstab
+  ansible.builtin.lineinfile:
+    path: /etc/fstab
+    line: "/dev/mapper/{{ vg_name }}-{{ item.name }} {{ item.mount }} {{ fs_type }} defaults 0 2"
+    regexp: "^/dev/mapper/{{ vg_name }}-{{ item.name }}\\b"
+    state: present
+    owner: root
+    group: root
+    mode: '0644'
+  loop: "{{ lvm_structure }}"
+  register: fstab_modified
+
+- name: Mount all filesystems
+  ansible.builtin.mount:
+    path: "{{ item.mount }}"
+    src: "/dev/mapper/{{ vg_name }}-{{ item.name }}"
+    fstype: "{{ fs_type }}"
+    state: mounted
+  loop: "{{ lvm_structure }}"
+  when: fstab_modified.changed

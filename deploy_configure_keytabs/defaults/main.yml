@@ -1,0 +1,6 @@
+---
+# defaults file for deploy_configure_keytabs
+
+keytabs:
+  # пример хостов и имен кейтабов
+  # - { host: "some_host_ip", keytab: "svc_1c.keytab" }

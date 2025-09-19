@@ -45,5 +45,27 @@
   # Удаление инсталяционных файлов установленных пакетов
   - name: Delete directory for package JRE
     file:
-      path: "{{ jre_dir_dest }}"
+      path: "{{ temp_dir }}"
       state: absent
+
+##############################################################################
+# Добавление переменной окружения
+##############################################################################
+
+  # Установка переменной среды JAVA_HOME
+  - name: Set JAVA_HOME environment variable
+    become: true
+    lineinfile:
+      path: /etc/environment
+      line: 'JAVA_HOME=/usr/lib/jvm/bellsoft-java11-runtime-full-amd64'
+      mode: '0644'
+    when: flag_add_JAVA_HOME_env_to_PATH
+
+  # Установка переменной среды PATH
+  - name: Set PATH environment variable
+    become: true
+    lineinfile:
+      path: /etc/environment
+      line: 'PATH=$PATH:$JAVA_HOME/bin'
+      mode: '0644'
+    when: flag_add_JAVA_HOME_env_to_PATH

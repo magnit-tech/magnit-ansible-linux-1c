@@ -1,0 +1,13 @@
+---
+# defaults file for install_1C
+
+extra_path: /opt/1C/1CE/components/1c-enterprise-ring-0.19.5+12-x86_64 # Путь к утилите для добавления в переменную окружения
+
+temp_dir: /tmp/ansible-temp-files # Временная папка для пакетов установки инструментов лицензирования, которая будет удалена
+ins_dir_dest: "{{ temp_dir }}/lictools" # директория куда нужно копировать архив с установoком инструментов лицензирования
+ins_dir_src: /ansible/distr/lictools # директория откуда нужно копировать файл установки платформы
+ins_archive: 1c_enterprise_license_tools_0.15.0_2_linux_x86_64.tar # имя архива с инсталятором инструментов лицензирования 1C
+ins_runner: 1ce-installer-cli # Программа запуска установки license tools без GUI
+
+flag_copy_inst: true # Флаг нужно или нет копировать архив инсталятора инструментов лицензирования
+flag_add_ring_env_to_PATH: false # Флаг нужно или нет добавлять переменную окружения для ring

@@ -1,0 +1,112 @@
+---
+- name: Проверка состояния Docker
+  become: true
+  systemd:
+    name: docker
+    state: started
+    enabled: yes
+
+- name: Создание каталогов для Vector
+  become: true
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: 0755
+  loop:
+    - /etc/vector
+    - /var/vector/data
+    - /etc/vector/config
+
+- name: Скачивание образа Vector из корпоративного репозитория
+  become: true
+  get_url:
+    url: "some_host_url"
+    dest: /tmp/vector0.42.0-debian_image.tar
+    mode: 0644
+    validate_certs: no  # Отключаем проверку SSL-сертификата
+
+- name: Загрузка образа Vector в Docker
+  become: true
+  command: docker load -i /tmp/vector0.42.0-debian_image.tar
+
+- name: Удаление временного файла образа
+  become: true
+  file:
+    path: /tmp/vector0.42.0-debian_image.tar
+    state: absent
+
+- name: Копирование конфигурационного файла Vector
+  become: true
+  template:
+    src: vector.yaml.j2
+    dest: /etc/vector/vector.yaml
+    mode: 0644
+
+- name: Копирование файлов lgp.vrl и lgf.vrl
+  become: true
+  copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: 0644
+  loop:
+    - { src: "lgp.vrl", dest: "/etc/vector/config/lgp.vrl" }
+    - { src: "lgf.vrl", dest: "/etc/vector/config/lgf.vrl" }
+
+- name: Копирование шаблона docker-compose.yml
+  become: true
+  template:
+    src: docker-compose.yml.j2
+    dest: /etc/vector/docker-compose.yml
+    mode: 0644
+
+- name: Копирование файла logcfg.xml
+  become: true
+  template:
+    src: logcfg.xml.j2
+    dest: /opt/1cv8/conf/logcfg.xml
+    mode: 0644
+
+- name: Пересоздание и запуск контейнера Vector
+  become: true
+  community.docker.docker_compose:
+    project_src: /etc/vector
+    state: present
+    recreate: always  # Принудительное пересоздание контейнера
+
+- name: Установка владельца и группы для каталога /var/1C
+  become: true
+  file:
+    path: /var/1C
+    owner: usr1cv8
+    group: grp1cv8
+    recurse: yes  # Рекурсивно применяется ко всем подкаталогам и файлам
+
+- name: Установка прав 755 для каталога /var/1C и всех вложенных файлов/каталогов
+  become: true
+  command: chmod -R 755 /var/1C
+
+- name: Создание каталога для скриптов
+  become: true
+  file:
+    path: /opt/1cv8/scripts
+    state: directory
+    owner: root
+    group: root
+    mode: 0755
+
+- name: Копирование скрипта remove_racdirs_only.py
+  become: true
+  copy:
+    src: remove_racdirs_only.py
+    dest: /opt/1cv8/scripts/remove_racdirs_only.py
+    owner: root
+    group: root
+    mode: 0755
+
+- name: Добавление задания в CRON для выполнения скрипта каждую минуту
+  become: true
+  cron:
+    name: "Удаление папок rac_*"
+    user: root
+    minute: "*"
+    job: "python3 /opt/1cv8/scripts/remove_racdirs_only.py"

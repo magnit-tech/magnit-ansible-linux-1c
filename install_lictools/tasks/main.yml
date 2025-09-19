@@ -1,0 +1,49 @@
+---
+# tasks file for install_lictools
+
+  # Создание директории, куда будут скопированы файлы для установки инструментов лицензирования 1С 
+  - name: Create directory for packages of 1C license tools
+    ansible.builtin.file:
+      path: "{{ ins_dir_dest }}"
+      state: directory
+      mode: '0755'
+
+  # Копирование файла архива установки инструментов лицензий 1С
+  - name: Copy file of installator archive of 1C license tools
+    copy:
+      src: "{{ ins_dir_src }}/{{ ins_archive }}"
+      dest: "{{ ins_dir_dest }}"
+      mode: 0777
+    when: flag_copy_inst == true
+
+  # Разархивация архива установки инструментов лицензий 1C на удаленном хосте
+  - name: Unarchive tar or zip file of installer 1C license tools
+    ansible.builtin.unarchive:
+      src: "{{ ins_dir_dest }}/{{ ins_archive }}"
+      dest: "{{ ins_dir_dest }}"
+      remote_src: yes
+
+  # Установка инструментов лицензирования 'утилиты ring с модулем license'
+  - name: Run 1C license tools install script
+    become: true
+    command: "sudo {{ ins_dir_dest }}/{{ ins_runner }} install --ignore-signature-warnings"
+
+  # Удаление инсталяционных файлов установленных пакетов
+  - name: Delete directory with 1C license tools instalation packages
+    file:
+      path: "{{ temp_dir }}"
+      state: absent
+  
+##############################################################################
+# Добавление переменной окружения
+##############################################################################
+
+  # Установка переменной среды PATH
+
+  - name: Set PATH environment variable
+    become: true
+    lineinfile:
+      path: /etc/environment
+      line: 'PATH=$PATH:{{ extra_path }}'
+      mode: '0644'
+    when: flag_add_ring_env_to_PATH

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config xmlns="http://v8.1c.ru/v8/tech-log">
+    <!-- Настройка для получения записей подсистемы мониторинга кластера -->
+    <log location="/var/1C/1540/log/{{ inventory_hostname }}_ADMIN" history="3">
+		<event>	
+			<eq property="Name" value="ADMIN" />
+		</event>
+		<property name="all" />
+	</log>
+	<log location="/var/1C/1540/log/{{ inventory_hostname }}_COMMON" history="3">
+		<!-- Настройка для получения событий лицензирования -->
+		<event>	
+			<eq property="Name" value="LIC" />
+		</event>
+		<!-- Настройка для получения событий исключительных ситуаций -->
+		<event>	
+			<eq property="Name" value="EXCP" />
+		</event>
+		<property name="all" />
+	</log>
+</config>

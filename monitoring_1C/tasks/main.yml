@@ -1,79 +1,222 @@
 ---
 # tasks file for Monitoring 1С
 
-  # Копирование скрипта мониторинга 1С в каталог /opt/1cv8/scripts/
-  - name: Copy script zabbix_exporter.py
-    become: true
-    ansible.builtin.copy:
-      src: "{{ script_path }}"
-      dest: /opt/1cv8/scripts/
-      mode: '0755'
+# Копирование скрипта мониторинга 1С в каталог /opt/1cv8/scripts/
+- name: Copy script zabbix_exporter.py
+  become: true
+  ansible.builtin.copy:
+    src: "{{ script_path }}"
+    dest: /opt/1cv8/scripts/
+    mode: '0755'
 
-  # Копирование списка репозиториев для установки zabbix-sender
-  - name: Copy list of repositories (zabbix-5.list)
-    become: true
-    ansible.builtin.copy:
-      src: "{{ repo_path }}"
-      dest: /etc/apt/sources.list.d/
-      mode: '0644'
+# Копирование списка репозиториев для установки zabbix-sender
+- name: Copy list of repositories (zabbix-5.list)
+  become: true
+  ansible.builtin.copy:
+    src: "{{ repo_path }}"
+    dest: /etc/apt/sources.list.d/
+    mode: '0644'
 
-  # Добавление в CRON задания, для выполнения скрипта мониторинга 1С, каждую минуту
-  - name: Create a job that runs script for 1 min
-    become: true
-    ansible.builtin.cron:
-      name: "Monitoring 1С every min"
-      user: root
-      job: "python3 /opt/1cv8/scripts/zabbix_exporter.py -rm {{ runmode }} -bn {{ base_name }} -ps {{ pg_server }} -pu {{ pg_user }} -pp '{{ pg_pass }}' -rcu {{ ras_cluster_user }} -rcp '{{ ras_cluster_pass }}'"
+# Добавление в CRON задания, для выполнения скрипта мониторинга 1С, каждую минуту
+- name: Create a job that runs script for 1 min
+  become: true
+  ansible.builtin.cron:
+    name: "Monitoring 1С every min"
+    user: root
+    job: "python3 /opt/1cv8/scripts/zabbix_exporter.py -rm {{ runmode }} -bn {{ base_name }} -ps {{ pg_server }} -pu {{ pg_user }} -pp '{{ pg_pass }}' -rcu {{ ras_cluster_user }} -rcp '{{ ras_cluster_pass }}'"
 
-  # Добавление в CRON задания, для выполнения скрипта мониторинга 1С, каждую минуту с паузой в 30 секунд
-  - name: Create a job that runs script for 30 sec
-    become: true
-    ansible.builtin.cron:
-      name: "Monitoring 1С every min with delay 30 sec"
-      user: root
-      job: "sleep 30 && python3 /opt/1cv8/scripts/zabbix_exporter.py -rm {{ runmode }} -bn {{ base_name }} -ps {{ pg_server }} -pu {{ pg_user }} -pp '{{ pg_pass }}' -rcu {{ ras_cluster_user }} -rcp '{{ ras_cluster_pass }}'"
+# Добавление в CRON задания, для выполнения скрипта мониторинга 1С, каждую минуту с паузой в 30 секунд
+- name: Create a job that runs script for 30 sec
+  become: true
+  ansible.builtin.cron:
+    name: "Monitoring 1С every min with delay 30 sec"
+    user: root
+    job: "sleep 30 && python3 /opt/1cv8/scripts/zabbix_exporter.py -rm {{ runmode }} -bn {{ base_name }} -ps {{ pg_server }} -pu {{ pg_user }} -pp '{{ pg_pass }}' -rcu {{ ras_cluster_user }} -rcp '{{ ras_cluster_pass }}'"
 
-  # Обновить список доступных пакетов из репозиториев
-  - name: Run the equivalent of apt update
-    become: true
-    ansible.builtin.apt:
-      update_cache: yes
+# Остановка, отключение и удаление zabbix-agent и zabbix-agent2 перед установкой zabbix-agent2
+# (Не удаляет конфигурации, поэтому в systemctl можно посмотреть на службу zabbix-agent, которую нельзя запустить)
+- block:
+    - name: Ensure both zabbix agents are stopped and disabled
+      become: true
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        state: stopped
+        enabled: no
+      loop: ["zabbix-agent", "zabbix-agent2"]
+      ignore_errors: yes
+      tags: delete-zabbix-agent
 
-  # Установка пакета libpq-dev через apt
-  - name: Install libpq-dev (apt)
-    become: true
-    ignore_errors: yes
-    ansible.builtin.apt:
-      pkg:
-        - libpq-dev
+    - name: Remove both zabbix agents packages
+      become: true
+      ansible.builtin.apt:
+        name: "{{ item }}"
+        state: absent
+      loop: ["zabbix-agent", "zabbix-agent2"]
+      ignore_errors: yes
+      tags: delete-zabbix-agent
 
-  # Установка пакета python-dev через apt
-  - name: Install python-dev (apt)
-    become: true
-    ignore_errors: yes
-    ansible.builtin.apt:
-      pkg:
-        - python-dev
+# Обновить список доступных пакетов из репозиториев
+- name: Run the equivalent of apt update
+  become: true
+  ansible.builtin.apt:
+    update_cache: yes
 
-  # Установка пакета pip через apt
-  - name: Install pip (apt)
-    become: true
-    ignore_errors: yes
-    ansible.builtin.apt:
-      pkg:
-        - pip
+# Установка пакета libpq-dev через apt
+- name: Install libpq-dev (apt)
+  become: true
+  ignore_errors: yes
+  ansible.builtin.apt:
+    pkg:
+      - libpq-dev
 
-  # Установка пакета zabbix-sender через apt
-  - name: Install zabbix-sender (apt)
-    become: true
-    ignore_errors: yes
-    ansible.builtin.apt:
-      pkg:
-        - zabbix-sender
+# Установка пакета python3-dev через apt (заменяем python-dev на python3-dev)
+- name: Install python3-dev (apt)
+  become: true
+  ignore_errors: yes
+  ansible.builtin.apt:
+    pkg:
+      - python3-dev
 
-  # Установка python пакета psycopg2 через pip
-  - name: Install psycopg2 python package (pip)
-    become: true
-    ansible.builtin.pip:
-      name: psycopg2
-      extra_args: "--index-url https://repo.corp.tander.ru/repository/pypi/simple/ --trusted-host=repo.corp.tander.ru"
+# Установка пакета pip через apt
+- name: Install pip (apt)
+  become: true
+  ignore_errors: yes
+  ansible.builtin.apt:
+    pkg:
+      - python3-pip
+
+# Установка пакета zabbix-agent2 через apt
+- name: Install zabbix-agent2 (apt)
+  become: true
+  ignore_errors: yes
+  ansible.builtin.apt:
+    pkg:
+      - zabbix-agent2
+
+# Перезапуск zabbix-agent2 после установки
+- name: Restart zabbix-agent2 service
+  become: true
+  ansible.builtin.systemd:
+    name: zabbix-agent2
+    state: restarted
+
+# Установка python пакета psycopg2 через pip
+- name: Install psycopg2 python package (pip)
+  become: true
+  ansible.builtin.pip:
+    name: psycopg2
+    extra_args: "--index-url some_host_url --trusted-host=some_host_url --break-system-packages"
+
+# ========== Установка 1c_zabbix_template_ce (Community Edition)
+# Устанавливает gawk как альтернативу по умолчанию для awk (необходимо для корректной работы скриптов)
+- name: Ensure gawk is default awk and verify compliance
+  block:
+    # Проверяем текущую настройку awk
+    - name: Check current awk alternative
+      become: true
+      ansible.builtin.command:
+        cmd: "update-alternatives --query awk"
+      register: awk_current_status
+      changed_when: false
+      tags: prerequisites
+    
+    # Устанавливаем gawk как альтернативу по умолчанию (если требуется)
+    - name: Set gawk as default awk alternative
+      become: true
+      ansible.builtin.command:
+        cmd: "update-alternatives --set awk {{ awk_alternative }}"
+      when: >
+        awk_current_status is success and
+        ('Value: ' + awk_alternative not in awk_current_status.stdout or
+         'Best: ' + awk_alternative not in awk_current_status.stdout)
+      tags: prerequisites
+
+# Создает директорию для скриптов мониторинга Zabbix с указанными правами и владельцем
+- name: Create Zabbix scripts directory
+  become: true
+  ansible.builtin.file:
+    path: "{{ zabbix_scripts_dir }}"
+    state: directory
+    owner: "{{ zabbix_file_owner.split(':')[0] }}"
+    group: "{{ zabbix_file_owner.split(':')[1] }}"
+    mode: "{{ zabbix_dir_mode }}"
+  tags: setup
+
+# Загружает все необходимые скрипты мониторинга 1С из удаленного репозитория
+# Повторяет попытки загрузки при ошибках (количество попыток настраивается в defaults)
+- name: Download monitoring scripts
+  become: true
+  ansible.builtin.get_url:
+    url: "{{ scripts_base_url }}/{{ item }}"
+    dest: "{{ zabbix_scripts_dir }}/{{ item }}"
+    owner: "{{ zabbix_file_owner.split(':')[0] }}"
+    group: "{{ zabbix_file_owner.split(':')[1] }}"
+    mode: "{{ zabbix_file_mode }}"
+    validate_certs: "{{ validate_certs }}"
+  loop: "{{ zabbix_scripts }}"
+  ignore_errors: yes
+  register: script_download
+  retries: "{{ download_retries }}"
+  delay: "{{ download_delay }}"
+  tags: scripts
+
+# Создает директорию для конфигурационных файлов Zabbix с указанными правами и владельцем
+- name: Create Zabbix config directory
+  become: true
+  ansible.builtin.file:
+    path: "{{ zabbix_config_dir }}"
+    state: directory
+    owner: "{{ zabbix_file_owner.split(':')[0] }}"
+    group: "{{ zabbix_file_owner.split(':')[1] }}"
+    mode: "{{ zabbix_dir_mode }}"
+  tags: setup
+
+# Загружает все конфигурационные файлы для мониторинга 1С из удаленного репозитория
+# Повторяет попытки загрузки при ошибках (количество попыток настраивается в defaults)
+- name: Download config files
+  become: true
+  ansible.builtin.get_url:
+    url: "{{ configs_base_url }}/{{ item }}"
+    dest: "{{ zabbix_config_dir }}/{{ item }}"
+    owner: "{{ zabbix_file_owner.split(':')[0] }}"
+    group: "{{ zabbix_file_owner.split(':')[1] }}"
+    mode: "{{ zabbix_file_mode }}"
+    validate_certs: "{{ validate_certs }}"
+  loop: "{{ zabbix_configs }}"
+  ignore_errors: yes
+  register: config_download
+  retries: "{{ download_retries }}"
+  delay: "{{ download_delay }}"
+  tags: configs
+
+# Проверяет, что все файлы были успешно загружены
+# Если какие-то файлы не загрузились - прерывает выполнение с ошибкой
+- name: Verify downloaded files
+  ansible.builtin.assert:
+    that:
+      - script_download is not skipped
+      - config_download is not skipped
+    fail_msg: "Failed to download required monitoring files"
+  tags: verification
+
+# Перезапускает сервис Zabbix Agent для применения новых конфигураций
+# Игнорирует возможные ошибки перезапуска (на случай если сервис еще не был установлен)
+- name: Restart Zabbix agent
+  become: true
+  ignore_errors: yes
+  ansible.builtin.service:
+    name: "{{ zabbix_service_name }}"
+    state: restarted
+  tags: service
+
+# Проверяет, что Zabbix Agent работает корректно после всех изменений
+# Выполняет тестовую команду и проверяет ее возвращаемый код
+- name: Verify Zabbix agent is running
+  become: true
+  ignore_errors: yes
+  ansible.builtin.command:
+    cmd: "{{ zabbix_agent_check_cmd }}"
+  register: agent_check
+  changed_when: false
+  failed_when: agent_check.rc != 0
+  tags: verification

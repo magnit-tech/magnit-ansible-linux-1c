@@ -1,0 +1,7 @@
+---
+# defaults file for load_1C_scripts
+
+script_path_zabbix_exporter: /ansible/distr/scripts_monitoring/zabbix_exporter.py # Путь к скрипту мониторинга служб 1C, на хосте, где запускается ansible
+script_path_1crestart: /ansible/distr/scripts/1crestart # Путь к скрипту 1crestart, на хосте, где запускается ansible
+scripts_dir_dist: /opt/1cv8/scripts/ # Путь сохранения скрипта на удаленном сервере
+

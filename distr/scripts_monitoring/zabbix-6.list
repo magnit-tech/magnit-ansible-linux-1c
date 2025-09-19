@@ -1,0 +1,2 @@
+deb [trusted=yes] some_host_url bookworm main
+deb-src [trusted=yes] some_host_url bookworm main

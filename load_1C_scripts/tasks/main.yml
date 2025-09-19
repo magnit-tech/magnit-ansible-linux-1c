@@ -1,0 +1,18 @@
+---
+# tasks file for loading 1C administrative files
+
+  # Копирование скрипта 1crestart в указанную директорию
+  - name: Copy 1crestart script
+    become: true
+    ansible.builtin.copy:
+      src: "{{ script_path_1crestart }}"
+      dest: "{{ scripts_dir_dist }}"
+      mode: '0755'
+
+  # Копирование скрипта zabbix_exporter.py в указанную директорию
+  - name: Copy zabbix_exporter.py script
+    become: true
+    ansible.builtin.copy:
+      src: "{{ script_path_zabbix_exporter }}"
+      dest: "{{ scripts_dir_dist }}"
+      mode: '0755'

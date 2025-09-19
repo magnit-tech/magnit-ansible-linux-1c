@@ -1,0 +1,20 @@
+- name: pass
+  hosts: all
+
+  vars_prompt:
+    - name: ansible_password
+      prompt: Пароль для подключения
+      private: yes
+
+##########################################################################################################################################################################################################
+#НАСТРОЙКА ЗАГРУЗКИ СКРИПТОВ АДМИНИСТРИРОВАНИЯ СЛУЖБ 1C
+- name: 
+  hosts: serv1C
+
+  vars:
+    script_path_zabbix_exporter: /ansible/distr/scripts_monitoring/zabbix_exporter.py # Путь к скрипту мониторинга служб 1C, на хосте, где запускается ansible
+    script_path_1crestart: /ansible/distr/scripts/1crestart # Путь к скрипту 1crestart, на хосте, где запускается ansible
+    script_dir_dist: /opt/1cv8/scripts/versioning_configs.py # Путь сохранения скрипта на удаленном сервере
+
+  roles:
+    - load_1C_scripts # Загрузка скриптов администрирования 1C

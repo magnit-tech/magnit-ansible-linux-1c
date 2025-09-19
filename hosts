@@ -1,6 +1,4 @@
-serv1C:
-  hosts:
-    some_host_name:
-      ansible_host: some_host_ip
-
+[serv1C]
+# пример многопоточного использования
+# some_host_ip ansible_host=10.10.10.10 ansible_user=ivanov_ii
 

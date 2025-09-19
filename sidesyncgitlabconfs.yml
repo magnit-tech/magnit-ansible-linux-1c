@@ -12,7 +12,7 @@
   hosts: serv1C
 
   vars:
-    script_path: /ansible/distr/scripts_backup/versioning_configs.py # Путь к скрипту синхронизации конфигурационных файлов, на хосте, где запускается ansible
+    script_path_versioning_configs: /ansible/distr/scripts_backup/versioning_configs.py # Путь к скрипту синхронизации конфигурационных файлов, на хосте, где запускается ansible
     script_dir_dist: /opt/1cv8/scripts/versioning_configs.py # Путь сохранения скрипта на удаленном сервере
     host_url: some_host_url # URL хоста GitLab
     private_token: '' # Токен доступа к подгруппе tst или prod

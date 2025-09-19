@@ -1,0 +1,84 @@
+sources:
+  log_1C_common:
+    type:   "file"
+    include: ["/var/vector/1540/techlog/*_COMMON/**/*.log"]
+    data_dir:  "/var/vector/data"
+    fingerprint:
+      strategy: "device_and_inode"
+    multiline:
+      timeout_ms: 1000
+      mode: "halt_before"
+      start_pattern: ''
+      condition_pattern: '^\d{2}:\d{2}\.\d{6}'
+
+  log_1C_admin:
+    type:   "file"
+    include: ["/var/vector/1540/techlog/*_ADMIN/**/*.log"]
+    data_dir:  "/var/vector/data"
+    fingerprint:
+      strategy: "device_and_inode"
+    multiline:
+      timeout_ms: 1000
+      mode: "halt_before"
+      start_pattern: ''
+      condition_pattern: '^\d{2}:\d{2}\.\d{6}'
+
+transforms:
+  log_1C_common_filebeat_emulator:
+    inputs: [ "log_1C_common"]
+    type: "remap"
+    source: |
+      .host = downcase!(.host)
+      .log.file.path = .file
+      .agent.hostname = .host
+      .fields.log_type = "all"
+      .fields.log_timezone = "Europe/Moscow"
+      del(.file)
+      del(.host)
+      del(.source_type)  
+      del(.timestamp) 
+ 
+  log_1C_admin_filebeat_emulator:
+    inputs: [ "log_1C_admin"]
+    type: "remap"
+    source: |
+      .host = downcase!(.host)
+      .log.file.path = .file
+      .agent.hostname = .host
+      .fields.log_type = "all"
+      .fields.log_timezone = "Europe/Moscow"
+      del(.file)
+      del(.host)
+      del(.source_type)  
+      del(.timestamp) 
+
+sinks:
+  opensearch_log_1C_common:
+    type: elasticsearch
+    inputs: ["log_1C_common_filebeat_emulator"]
+    api_version: "v7"
+    endpoint: "some_host_url"
+    tls:
+        verify_certificate: false   
+    auth:
+        password: "{{ opensearch_password }}"
+        user: "{{ opensearch_user }}"
+        strategy: "basic"
+    pipeline: "techlog"
+    bulk:
+        index: "techlog-lic-%Y.%U"
+
+  opensearch_log_1C_admin:
+    type: elasticsearch
+    inputs: ["log_1C_admin_filebeat_emulator"]
+    api_version: "v7"
+    endpoint: "some_host_url"
+    tls:
+        verify_certificate: false   
+    auth:
+        password: "{{ opensearch_password }}"
+        user: "{{ opensearch_user }}"
+        strategy: "basic"
+    pipeline: "techlog"
+    bulk:
+        index: "techlog-admin-%Y.%m"

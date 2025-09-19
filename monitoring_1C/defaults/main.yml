@@ -1,0 +1,38 @@
+# defaults file for Monitoring 1C
+
+# ========== Базовые настройки ==========
+zabbix_service_name: "zabbix-agent2"
+validate_certs: no  # Отключаем проверку SSL-сертификатов
+awk_alternative: "/usr/bin/gawk"  # Альтернатива для awk
+
+# ========== Пути и права доступа ==========
+zabbix_scripts_dir: "/var/lib/zabbix/scripts"
+zabbix_config_dir: "/etc/zabbix/zabbix_agent2.d"
+zabbix_file_owner: "zabbix:zabbix"
+zabbix_dir_mode: "0755"
+zabbix_file_mode: "0755"
+
+# ========== URL репозиториев ==========
+scripts_base_url: "some_host_url"
+configs_base_url: "some_host_url"
+
+# ========== Списки файлов для загрузки ==========
+zabbix_scripts:
+  - "1c_central_server.sh"
+  - "1c_common_module.sh"
+  - "1c_license_files.sh"
+  - "1c_license_server.sh"
+  - "1c_work_server.sh"
+
+zabbix_configs:
+  - "userparameter_1c-cs.conf"
+  - "userparameter_1c-lf.conf"
+  - "userparameter_1c-ls.conf"
+  - "userparameter_1c-ws.conf"
+
+# ========== Настройки проверки агента ==========
+zabbix_agent_check_cmd: "zabbix_agent2 -t agent.ping"
+
+# ========== Настройки повторных попыток ==========
+download_retries: 3
+download_delay: 5

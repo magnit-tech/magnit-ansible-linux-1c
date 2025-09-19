@@ -1,0 +1,161 @@
+---
+# tasks file for update scripts based on the PASS utility for 1C servers
+
+  # Получаем UUID кластера серверов
+  # 0. Обновить список доступных пакетов из репозиториев
+  - name: Run the equivalent of apt update
+    become: true
+    ansible.builtin.apt:
+      update_cache: yes
+
+  # 1. Установка pass # gpg2 по умолчанию входит в стандартный набор Debian 11/12
+  - name: Install pass package
+    apt:
+      name: pass
+      state: present
+      update_cache: yes
+
+  # 2. Копирование скриптов
+  - name: Ensure scripts directory exists
+    file:
+      path: "{{ scripts_dest_dir }}"
+      state: directory
+      mode: '0755'
+
+  # Копирование скрипта мониторинга 1С в каталог /opt/1cv8/scripts/
+  - name: Copy script zabbix_exporter.py
+    become: true
+    ansible.builtin.copy:
+      src: "{{ script_path }}"
+      dest: "{{ scripts_dest_dir }}"
+      mode: '0755'
+
+  # Копирование скрипта версионирования конфигов в каталог /opt/1cv8/scripts/
+  - name: Copy script versioning_configs.py
+    become: true
+    ansible.builtin.copy:
+      src: "{{ script_path_versioning_configs }}"
+      dest: "{{ scripts_dest_dir }}"
+      mode: '0755'
+
+  # 3. Копирование и распаковка хранилища паролей
+  - name: Copy password store archive
+    become: true
+    copy:
+      src: "{{ password_store_archive }}"
+      dest: "/tmp/password-store.tar.gz"
+      owner: "{{ target_user }}"
+      #group: "{{ target_user }}"
+      mode: '0600'
+      # become_user: "{{ target_user }}"
+      remote_src: false
+
+  - name: Extract password store
+    block:
+      - name: Actually extract password store
+        unarchive:
+          src: "/tmp/password-store.tar.gz"
+          dest: "{{ user_home }}"
+          owner: "{{ target_user }}"
+          #group: "{{ target_user }}"
+          mode: '0700'
+          remote_src: true
+        become_user: "{{ target_user }}"
+    rescue:
+      - name: Cleanup password store archive on error
+        file:
+          path: "/tmp/password-store.tar.gz"
+          state: absent
+        ignore_errors: yes
+
+  # 4. Импорт GPG ключа с гарантированным удалением
+  - name: Handle GPG key operations
+    block:
+      - name: Copy private GPG key
+        become: true
+        copy:
+          src: "{{ private_key_file }}"
+          dest: "/tmp/private_key.asc"
+          owner: "{{ target_user }}"
+          #group: "{{ target_user }}"
+          mode: '0600'
+          remote_src: false
+
+      - name: Import private GPG key
+        command: gpg --import /tmp/private_key.asc
+        become_user: "{{ target_user }}"
+        register: gpg_import
+        changed_when: "'already in secret keyring' not in gpg_import.stderr"
+
+      - name: Verify GPG key installation
+        command: gpg --list-secret-keys
+        become_user: "{{ target_user }}"
+        register: gpg_list
+        changed_when: false
+
+      - name: Validate GPG key presence
+        assert:
+          that: gpg_key_identity in gpg_list.stdout
+          msg: "GPG key with identity '{{ gpg_key_identity }}' not found"
+      
+    rescue:
+      - name: Notify about GPG import failure
+        debug:
+          msg: "Failed to import GPG key, cleaning up"
+        ignore_errors: yes
+
+    always:
+      - name: Ensure GPG key is removed
+        file:
+          path: "/tmp/private_key.asc"
+          state: absent
+        ignore_errors: yes
+
+  # 6. Обновление CRON задачи
+  # Добавит/обновит запись, если увидит совпадающее имя (name) !! Следует всегда, даже при ручном создании задания указывать поле имя у задания, чтобы Ansible обновлял его в автоматическом режиме
+  # Добавление в CRON задания, для выполнения скрипта мониторинга 1С, каждую минуту
+    
+  - name: Create a job that runs script for 1 min
+    become: true
+    ansible.builtin.cron:
+      name: "Monitoring 1С every min"
+      user: "{{ target_user }}"
+      job: "python3 /opt/1cv8/scripts/zabbix_exporter.py -rm {{ runmode }} -bn {{ base_name }} -ps {{ pg_server }} -pu {{ pg_user }} -pp '{{ pg_pass }}' -rcu {{ ras_cluster_user }} -rcp '{{ ras_cluster_pass }}'"
+      state: present
+
+  # Добавление в CRON задания, для выполнения скрипта мониторинга 1С, каждую минуту с паузой в 30 секунд
+  - name: Create a job that runs script for 30 sec
+    become: true
+    ansible.builtin.cron:
+      name: "Monitoring 1С every min with delay 30 sec"
+      user: "{{ target_user }}"
+      job: "sleep 30 && python3 /opt/1cv8/scripts/zabbix_exporter.py -rm {{ runmode }} -bn {{ base_name }} -ps {{ pg_server }} -pu {{ pg_user }} -pp '{{ pg_pass }}' -rcu {{ ras_cluster_user }} -rcp '{{ ras_cluster_pass }}'"
+      state: present
+
+  # Добавление в CRON задания, для выполнения скрипта синхронизации конфигов, каждый час
+  - name: Create a job that runs script every hour 
+    become: true
+    ansible.builtin.cron:
+      name: "Synchronization configs every hour"
+      user: "{{ target_user }}"
+      minute: "0"
+      hour: "*"
+      job: "python3 -W ignore /opt/1cv8/scripts/versioning_configs.py -hurl {{ host_url }} -pt {{ private_token }} --upload"
+      state: present
+    
+
+  # Финализация - удаление временных файлов
+  - name: Final cleanup
+    block:
+      - name: Remove password store archive
+        file:
+          path: "/tmp/password-store.tar.gz"
+          state: absent
+        ignore_errors: yes
+
+      - name: Remove GPG key (redundant, but just in case)
+        file:
+          path: "/tmp/private_key.asc"
+          state: absent
+        ignore_errors: yes
+

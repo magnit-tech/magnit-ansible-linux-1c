@@ -1,0 +1,12 @@
+---
+- name: Create LVM volumes
+  ansible.builtin.include_tasks: create_lvm.yml
+
+- name: Prepare filesystems and mount points (без монтирования!)
+  ansible.builtin.include_tasks: prepare_mounts.yml
+
+- name: Migrate data to new volumes
+  ansible.builtin.include_tasks: migrate.yml
+
+- name: Finalize mounting (fstab + mount)
+  ansible.builtin.include_tasks: mount_final.yml

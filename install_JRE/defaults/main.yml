@@ -1,0 +1,12 @@
+---
+# defaults file for install_JRE
+
+extra_path: /opt/1C/1CE/components/1c-enterprise-ring-0.19.5+12-x86_64 # Путь к утилите для добавления в переменную окружения
+
+temp_dir: /tmp/ansible-temp-files # Временная папка для пакета установки JRE, которая будет удалена
+jre_dir_dest: /tmp/ansible-temp-files/distr/deb/for_jre # директория куда нужно копировать файл установки JRE
+jre_file_name: "bellsoft_jre11.0.20_8_linux_amd64_full.deb" # Наименование файла deb с пакетом
+jre_package: "/ansible/distr/deb/for_jre/{{ jre_file_name }}" # директория, где хранится исходный файл JRE (на хосте, где запускается сам ansible playbook)
+
+# flag_copy_inst: true # Флаг нужно или нет копировать архив инсталятора инструментов лицензирования
+flag_add_JAVA_HOME_env_to_PATH: false # Флаг нужно или нет добавлять переменную окружения JAVA_HOME в PATH

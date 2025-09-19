@@ -1,0 +1,24 @@
+---
+- name: Temporarily mount for migration
+  ansible.builtin.mount:
+    path: "/mnt/new_{{ item.name }}"
+    src: "/dev/mapper/{{ vg_name }}-{{ item.name }}"
+    fstype: "{{ fs_type }}"
+    state: mounted
+  loop: "{{ lvm_structure }}"
+  when: item.migrate | default(false)
+  register: temp_mounts
+
+- name: Copy data for migrated volumes
+  block:
+    - name: Transfer data
+      ansible.builtin.command: "cp -a {{ item.mount }}/. /mnt/new_{{ item.name }}/"
+      loop: "{{ lvm_structure }}"
+      when: item.migrate | default(false)
+
+- name: Unmount temporary
+  ansible.builtin.mount:
+    path: "/mnt/new_{{ item.name }}"
+    state: unmounted
+  loop: "{{ lvm_structure }}"
+  when: item.migrate | default(false)

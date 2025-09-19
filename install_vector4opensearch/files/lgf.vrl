@@ -1,0 +1,6 @@
+# transform.vrl
+structured, err = parse_regex(.message, r'\{(?P<type>\d+),(?P<name>.*),(?P<id>\d+)\},', numeric_groups: false)                                          
+. = merge(., structured)
+strname, errname = parse_regex(.name, r'(?P<guid>.*),\"(?P<name>.*)\"', numeric_groups: false)
+. = merge(., strname)
+.err = err

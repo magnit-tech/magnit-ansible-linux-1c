@@ -1,0 +1,12 @@
+---
+# tasks file for create_change_symlink 
+
+
+- name: Create symlink to folder 
+  file:
+    # owner: root
+    # group: root
+    src: "/opt/1cv8/x86_64/8.3.25.1072"
+    dest: "/opt/1cv8/current"
+    state: link
+  become: yes

@@ -1,0 +1,270 @@
+sources:
+  lgp:
+    type:   "file"
+    include: ["/var/vector/1540/journal/fias_tst/*.lgp"]
+    data_dir:  "/var/vector/data"
+    fingerprint:
+      strategy: "device_and_inode"
+    multiline:
+      timeout_ms: 1000
+      mode: "halt_before"
+      start_pattern: ''
+      condition_pattern: '\{\d{14},.+?,'
+
+  lgf:
+    type:   "file"
+    include: ["/var/vector/1540/journal/fias_tst/1Cv8.lgf"]
+    data_dir:  "/var/vector/data"
+    fingerprint:
+      strategy: "device_and_inode"
+    multiline:
+      timeout_ms: 1000
+      mode: "halt_before"
+      start_pattern: ''
+      condition_pattern: '\{\d+,.*,'    
+
+  log_1C_common:
+    type:   "file"
+    include: ["/var/vector/1540/techlog/*_COMMON/**/*.log"]
+    data_dir:  "/var/vector/data"
+    fingerprint:
+      strategy: "device_and_inode"
+    multiline:
+      timeout_ms: 1000
+      mode: "halt_before"
+      start_pattern: ''
+      condition_pattern: '^\d{2}:\d{2}\.\d{6}'
+  
+  log_1C_tlock:
+    type:   "file"
+    include: ["/var/vector/1540/techlog/*_TLOCK/**/*.log"]
+    data_dir:  "/var/vector/data"
+    fingerprint:
+      strategy: "device_and_inode"
+    multiline:
+      timeout_ms: 1000
+      mode: "halt_before"
+      start_pattern: ''
+      condition_pattern: '^\d{2}:\d{2}\.\d{6}'
+
+  log_1C_admin:
+    type:   "file"
+    include: ["/var/vector/1540/techlog/*_ADMIN/**/*.log"]
+    data_dir:  "/var/vector/data"
+    fingerprint:
+      strategy: "device_and_inode"
+    multiline:
+      timeout_ms: 1000
+      mode: "halt_before"
+      start_pattern: ''
+      condition_pattern: '^\d{2}:\d{2}\.\d{6}'
+
+  log_1C_longdurationinfo:
+    type:   "file"
+    include: ["/var/vector/1540/techlog/*_LONGDURATIONINFO/**/*.log"]
+    data_dir:  "/var/vector/data"
+    fingerprint:
+      strategy: "device_and_inode"
+    multiline:
+      timeout_ms: 1000
+      mode: "halt_before"
+      start_pattern: ''
+      condition_pattern: '^\d{2}:\d{2}\.\d{6}'
+
+transforms:
+  remap_lgp:
+    inputs:
+      - "lgp"
+    type:   "remap"
+    file: "/etc/vector/config/lgp.vrl"
+
+  remap_lgf:
+    inputs:
+      - "lgf"
+    type:   "remap"
+    file: "/etc/vector/config/lgf.vrl"
+
+  log_1C_common_filebeat_emulator:
+    inputs: [ "log_1C_common"]
+    type: "remap"
+    source: |
+      .host = downcase!(.host)
+      .log.file.path = .file
+      .agent.hostname = .host
+      .fields.log_type = "all"
+      .fields.log_timezone = "Europe/Moscow"
+      del(.file)
+      del(.host)
+      del(.source_type)  
+      del(.timestamp) 
+
+  log_1C_tlock_filebeat_emulator:
+    inputs: [ "log_1C_tlock"]
+    type: "remap"
+    source: |
+      .host = downcase!(.host)
+      .log.file.path = .file
+      .agent.hostname = .host
+      .fields.log_type = "all"
+      .fields.log_timezone = "Europe/Moscow"
+      del(.file)
+      del(.host)
+      del(.source_type)  
+      del(.timestamp) 
+ 
+  log_1C_admin_filebeat_emulator:
+    inputs: [ "log_1C_admin"]
+    type: "remap"
+    source: |
+      .host = downcase!(.host)
+      .log.file.path = .file
+      .agent.hostname = .host
+      .fields.log_type = "all"
+      .fields.log_timezone = "Europe/Moscow"
+      del(.file)
+      del(.host)
+      del(.source_type)  
+      del(.timestamp) 
+ 
+  log_1C_longdurationinfo_filebeat_emulator:
+    inputs: [ "log_1C_longdurationinfo"]
+    type: "remap"
+    source: |
+      .host = downcase!(.host)
+      .log.file.path = .file
+      .agent.hostname = .host
+      .fields.log_type = "all"
+      .fields.log_timezone = "Europe/Moscow"
+      del(.file)
+      del(.host)
+      del(.source_type)  
+      del(.timestamp) 
+ 
+  filter_error:
+    inputs: ["remap_lgp"]
+    type: "filter"
+    condition: '.err != null'
+
+  filter_success: 
+    inputs: ["remap_lgp"]
+    type: "filter"
+    condition: '.err == null'
+
+
+sinks:
+  clickhouse_lgp_sucsess:
+    type: "clickhouse"
+    inputs: ["filter_success"]
+    endpoint: "some_host_url"
+    auth:
+      strategy: "basic"
+      user: "user"
+      password: "password"
+    database: "zr_fias_tst"
+    table: "lgp"
+    skip_unknown_fields: true
+    encoding:
+      timestamp_format: "unix"
+    batch:
+      max_events: 100000
+      timeout_secs: 1
+    acknowledgements:
+      enabled: true
+
+  clickhouse_lgp_error:
+    type: "clickhouse"
+    inputs: ["filter_error"]
+    endpoint: "some_host_url"
+    auth:
+      strategy: "basic"
+      user: "user"
+      password: "password"
+    database: "zr_fias_tst"
+    table: "error"
+    skip_unknown_fields: true
+    encoding:
+      timestamp_format: "unix"
+    batch:
+      max_events: 100000
+      timeout_secs: 1
+    acknowledgements:
+      enabled: true
+
+  clickhouse_lgf:
+    type: "clickhouse"
+    inputs: ["remap_lgf"]
+    endpoint: "some_host_url"
+    auth:
+      strategy: "basic"
+      user: "user"
+      password: "password"
+    database: "zr_fias_tst"
+    table: "lgf"
+    skip_unknown_fields: true
+    encoding:
+      timestamp_format: "unix"
+    batch:
+      max_events: 100000
+      timeout_secs: 1
+    acknowledgements:
+      enabled: true
+
+  opensearch_log_1C_common:
+    type: elasticsearch
+    inputs: ["log_1C_common_filebeat_emulator"]
+    api_version: "v7"
+    endpoint: "some_host_url"
+    tls:
+        verify_certificate: false   
+    auth:
+        password: "{{ opensearch_password }}"
+        user: "{{ opensearch_user }}"
+        strategy: "basic"
+    pipeline: "techlog"
+    bulk:
+        index: "techlog-prod-%Y.%m.%d"
+
+  opensearch_log_1C_tlock:
+    type: elasticsearch
+    inputs: ["log_1C_tlock_filebeat_emulator"]
+    api_version: "v7"
+    endpoint: "some_host_url"
+    tls:
+        verify_certificate: false   
+    auth:
+        password: "{{ opensearch_password }}"
+        user: "{{ opensearch_user }}"
+        strategy: "basic"
+    pipeline: "techlog"
+    bulk:
+        index: "techlog-prod-%Y.%m.%d"
+
+  opensearch_log_1C_admin:
+    type: elasticsearch
+    inputs: ["log_1C_admin_filebeat_emulator"]
+    api_version: "v7"
+    endpoint: "some_host_url"
+    tls:
+        verify_certificate: false   
+    auth:
+        password: "{{ opensearch_password }}"
+        user: "{{ opensearch_user }}"
+        strategy: "basic"
+    pipeline: "techlog"
+    bulk:
+        index: "techlog-admin-%Y.%m"
+
+  opensearch_log_1C_longdurationinfo:
+    type: elasticsearch
+    inputs: ["log_1C_longdurationinfo_filebeat_emulator"]
+    api_version: "v7"
+    endpoint: "some_host_url"
+    tls:
+        verify_certificate: false   
+    auth:
+        password: "{{ opensearch_password }}"
+        user: "{{ opensearch_user }}"
+        strategy: "basic"
+    pipeline: "techlog"
+    bulk:
+        index: "techlog-prod-%Y.%m.%d"

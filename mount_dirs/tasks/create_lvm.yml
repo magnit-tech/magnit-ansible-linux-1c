@@ -1,0 +1,19 @@
+---
+- name: Install LVM2 package
+  ansible.builtin.package:
+    name: lvm2
+    state: present
+
+- name: Create physical volume
+  ansible.builtin.command: "pvcreate {{ disk_device }}"
+  args:
+    creates: "/dev/{{ vg_name }}"
+
+- name: Create volume group
+  ansible.builtin.command: "vgcreate {{ vg_name }} {{ disk_device }}"
+  args:
+    creates: "/dev/{{ vg_name }}"
+
+- name: Create logical volumes
+  ansible.builtin.command: "lvcreate -y -n {{ item.name }} {% if item.size.endswith('%FREE') %}-l 100%FREE{% else %}-L {{ item.size }}{% endif %} {{ vg_name }}"
+  loop: "{{ lvm_structure }}"
